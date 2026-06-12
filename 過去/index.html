@@ -679,7 +679,7 @@
             }
 
             // Filter Products based on search and selected category filter
-            let filteredProducts = getSortedProducts().filter(prod => prod.name.toLowerCase().includes(searchQuery));
+            let filteredProducts = state.products.filter(prod => prod.name.toLowerCase().includes(searchQuery));
 
             if (state.selectedCategoryFilter !== 'all') {
                 filteredProducts = filteredProducts.filter(prod => getProductCategory(prod) === state.selectedCategoryFilter);
@@ -787,7 +787,7 @@
                 searchClearBtn.classList.add('hidden');
             }
 
-            const filteredProducts = getSortedProducts().filter(prod => prod.name.toLowerCase().includes(searchQuery));
+            const filteredProducts = state.products.filter(prod => prod.name.toLowerCase().includes(searchQuery));
 
             if (filteredProducts.length === 0) {
                 tbody.innerHTML = `
@@ -1236,20 +1236,6 @@
             lucide.createIcons();
         }
 
-        // 商品名(あいうえお順/アルファベット順) → サイズ順(大→中→小→詰め替え用→なし→その他) で並び替え
-        const variantSortOrder = { '大': 0, '中': 1, '小': 2, '詰め替え用': 3, 'なし': 4, 'その他': 5 };
-
-        function getSortedProducts() {
-            return [...state.products].sort((a, b) => {
-                const nameCompare = a.name.localeCompare(b.name, 'ja');
-                if (nameCompare !== 0) return nameCompare;
-
-                const orderA = variantSortOrder[a.variant] !== undefined ? variantSortOrder[a.variant] : 6;
-                const orderB = variantSortOrder[b.variant] !== undefined ? variantSortOrder[b.variant] : 6;
-                return orderA - orderB;
-            });
-        }
-
         // Render Master Products (商品マスタ一覧)
         function renderManagementProductList() {
             const productContainer = document.getElementById('mgt-product-list');
@@ -1260,7 +1246,7 @@
                 return;
             }
 
-            productContainer.innerHTML = getSortedProducts().map(prod => {
+            productContainer.innerHTML = state.products.map(prod => {
                 const category = getProductCategory(prod);
                 const categoryLabel = `<span class="text-[9px] font-bold px-1.5 py-0.2 ${getCategoryBadgeClass(category)} rounded-full border">${category}</span>`;
                 const variantLabel = prod.variant && prod.variant !== 'なし' ? ` <span class="text-[9px] font-bold px-1.5 py-0.2 bg-slate-100 text-slate-600 border border-slate-200 rounded-full">${prod.variant}</span>` : '';
