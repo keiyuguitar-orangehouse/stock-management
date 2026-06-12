@@ -1447,7 +1447,7 @@
             document.getElementById('new-product-category').value = keepCategory;
 
             const sizeLabel = variant !== 'なし' ? ` (${variant})` : '';
-            showToast('商品追加', `「${name}${sizeLabel}」(${category}) を追加しました。あいうえお順に自動で並び替えられます。`);
+            showToast('商品追加', `「${name}${sizeLabel}」(${category}) を新しく登録しました。`);
         }
 
         // Action: Delete product
@@ -1460,7 +1460,7 @@
                 saveState();
                 renderApp();
                 renderManagementPanel();
-                showToast('商品削除', `「${product.name}」を削除しました。`, 'info');
+                showToast('商品削除', `「${product.name}」をマスタから削除しました。`, 'info');
             }
         }
 
