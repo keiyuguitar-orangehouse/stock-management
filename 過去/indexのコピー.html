@@ -135,13 +135,13 @@
 
                 <!-- Spreadsheet Table -->
                 <div class="overflow-x-auto border border-gray-200 rounded-xl">
-                    <table class="w-full text-[11px] border-collapse table-fixed">
+                    <table class="min-w-full text-xs border-collapse">
                         <thead>
                             <tr class="bg-slate-100 text-slate-600">
-                                <th class="sticky left-0 bg-slate-100 px-2 py-2 text-left font-bold border-b border-r border-gray-200 w-auto">商品名</th>
-                                <th class="px-1 py-2 text-right font-bold border-b border-r border-gray-200 w-14">BRITS</th>
-                                <th class="px-1 py-2 text-right font-bold border-b border-r border-gray-200 w-16">BROTHERS</th>
-                                <th class="px-1 py-2 text-right font-bold border-b border-gray-200 w-12 bg-teal-50 text-teal-700">合計</th>
+                                <th class="sticky left-0 bg-slate-100 px-3 py-2 text-left font-bold border-b border-r border-gray-200 whitespace-nowrap">商品名</th>
+                                <th class="px-3 py-2 text-right font-bold border-b border-r border-gray-200 whitespace-nowrap">sun hair BRITS</th>
+                                <th class="px-3 py-2 text-right font-bold border-b border-r border-gray-200 whitespace-nowrap">BRITS BROTHERS</th>
+                                <th class="px-3 py-2 text-right font-bold border-b border-gray-200 whitespace-nowrap bg-teal-50 text-teal-700">合計</th>
                             </tr>
                         </thead>
                         <tbody id="stock-table-body">
@@ -289,7 +289,7 @@
                                     <option value="大">大</option>
                                     <option value="中">中</option>
                                     <option value="小">小</option>
-                                    <option value="詰替">詰替</option>
+                                    <option value="詰め替え用">詰め替え用</option>
                                     <option value="その他">その他</option>
                                 </select>
                             </div>
@@ -407,9 +407,9 @@
             { id: 'p1_l', name: 'オーガニックシャンプー', category: 'シャンプー', variant: '大', stock: { 'sun hair BRITS': 15, 'BRITS BROTHERS': 12 } },
             { id: 'p1_m', name: 'オーガニックシャンプー', category: 'シャンプー', variant: '中', stock: { 'sun hair BRITS': 10, 'BRITS BROTHERS': 10 } },
             { id: 'p1_s', name: 'オーガニックシャンプー', category: 'シャンプー', variant: '小', stock: { 'sun hair BRITS': 8, 'BRITS BROTHERS': 6 } },
-            { id: 'p1_r', name: 'オーガニックシャンプー', category: 'シャンプー', variant: '詰替', stock: { 'sun hair BRITS': 5, 'BRITS BROTHERS': 4 } },
+            { id: 'p1_r', name: 'オーガニックシャンプー', category: 'シャンプー', variant: '詰め替え用', stock: { 'sun hair BRITS': 5, 'BRITS BROTHERS': 4 } },
             { id: 'p2_l', name: 'オーガニックトリートメント', category: 'シャンプー', variant: '大', stock: { 'sun hair BRITS': 10, 'BRITS BROTHERS': 8 } },
-            { id: 'p2_r', name: 'オーガニックトリートメント', category: 'シャンプー', variant: '詰替', stock: { 'sun hair BRITS': 6, 'BRITS BROTHERS': 5 } },
+            { id: 'p2_r', name: 'オーガニックトリートメント', category: 'シャンプー', variant: '詰め替え用', stock: { 'sun hair BRITS': 6, 'BRITS BROTHERS': 5 } },
             { id: 'p3', name: 'ヘアワックス (ナチュラル)', category: 'ワックス', variant: 'なし', stock: { 'sun hair BRITS': 20, 'BRITS BROTHERS': 15 } },
             { id: 'p4', name: 'トリートメントオイル (リッチ)', category: 'オイル', variant: 'なし', stock: { 'sun hair BRITS': 8, 'BRITS BROTHERS': 14 } },
             { id: 'p5', name: 'スカルプクレンジングエッセンス', category: '美容機器', variant: 'なし', stock: { 'sun hair BRITS': 5, 'BRITS BROTHERS': 6 } }
@@ -716,7 +716,7 @@
                     if (prod.variant === '大') badgeColorClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
                     if (prod.variant === '中') badgeColorClass = 'bg-sky-50 text-sky-700 border-sky-200';
                     if (prod.variant === '小') badgeColorClass = 'bg-amber-50 text-amber-700 border-amber-200';
-                    if (prod.variant === '詰替') badgeColorClass = 'bg-purple-50 text-purple-700 border-purple-200';
+                    if (prod.variant === '詰め替え用') badgeColorClass = 'bg-purple-50 text-purple-700 border-purple-200';
                     
                     variantBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeColorClass}">${prod.variant}</span>`;
                 }
@@ -750,7 +750,7 @@
                                 <label class="block text-[9px] text-gray-400 mb-0.5 font-bold">担当スタッフ</label>
                                 <div class="relative">
                                     <select id="staff-select-${prod.id}" class="w-full bg-slate-50 text-slate-700 font-semibold px-2 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-salon-primary appearance-none">
-                                        <option value="">未選択</option>
+                                        <option value="" disabled selected>選択してください</option>
                                         ${staffOptions}
                                     </select>
                                     <div class="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
@@ -792,7 +792,7 @@
             if (filteredProducts.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="4" class="text-center py-8 text-gray-400 text-xs">
+                        <td colspan="4" class="text-center py-10 text-gray-400">
                             該当する商品が見つかりません
                         </td>
                     </tr>
@@ -813,12 +813,12 @@
 
                 return `
                     <tr class="${rowBg} hover:bg-teal-50/40 transition-colors">
-                        <td class="sticky left-0 ${rowBg} px-2 py-1.5 border-b border-r border-gray-100 font-semibold text-gray-700 leading-tight">
+                        <td class="sticky left-0 ${rowBg} px-3 py-2 border-b border-r border-gray-100 font-semibold text-gray-700 whitespace-nowrap">
                             ${prod.name}${variantLabel}
                         </td>
-                        <td class="px-1 py-1.5 border-b border-r border-gray-100 text-right font-mono">${britsStock}</td>
-                        <td class="px-1 py-1.5 border-b border-r border-gray-100 text-right font-mono">${brothersStock}</td>
-                        <td class="px-1 py-1.5 border-b border-gray-100 text-right font-mono font-bold ${isLowStock ? 'text-red-500' : 'text-salon-primary'} bg-teal-50/50">${total}</td>
+                        <td class="px-3 py-2 border-b border-r border-gray-100 text-right font-mono">${britsStock}</td>
+                        <td class="px-3 py-2 border-b border-r border-gray-100 text-right font-mono">${brothersStock}</td>
+                        <td class="px-3 py-2 border-b border-gray-100 text-right font-mono font-bold ${isLowStock ? 'text-red-500' : 'text-salon-primary'} bg-teal-50/50">${total}</td>
                     </tr>
                 `;
             }).join('');
@@ -830,10 +830,10 @@
 
             tfoot.innerHTML = `
                 <tr class="bg-slate-100 font-bold text-slate-700">
-                    <td class="sticky left-0 bg-slate-100 px-2 py-1.5 border-t-2 border-r border-gray-200">合計</td>
-                    <td class="px-1 py-1.5 border-t-2 border-r border-gray-200 text-right font-mono">${totalBrits}</td>
-                    <td class="px-1 py-1.5 border-t-2 border-r border-gray-200 text-right font-mono">${totalBrothers}</td>
-                    <td class="px-1 py-1.5 border-t-2 border-gray-200 text-right font-mono text-teal-700 bg-teal-50">${grandTotal}</td>
+                    <td class="sticky left-0 bg-slate-100 px-3 py-2 border-t-2 border-r border-gray-200 whitespace-nowrap">合計</td>
+                    <td class="px-3 py-2 border-t-2 border-r border-gray-200 text-right font-mono">${totalBrits}</td>
+                    <td class="px-3 py-2 border-t-2 border-r border-gray-200 text-right font-mono">${totalBrothers}</td>
+                    <td class="px-3 py-2 border-t-2 border-gray-200 text-right font-mono text-teal-700 bg-teal-50">${grandTotal}</td>
                 </tr>
             `;
         }
@@ -1187,7 +1187,7 @@
                     if (log.variant === '大') badgeColorClass = 'bg-emerald-50 text-emerald-700 border-emerald-150';
                     if (log.variant === '中') badgeColorClass = 'bg-sky-50 text-sky-700 border-sky-150';
                     if (log.variant === '小') badgeColorClass = 'bg-amber-50 text-amber-700 border-amber-150';
-                    if (log.variant === '詰替') badgeColorClass = 'bg-purple-50 text-purple-700 border-purple-150';
+                    if (log.variant === '詰め替え用') badgeColorClass = 'bg-purple-50 text-purple-700 border-purple-150';
                     sizeBadge = `<span class="px-1.5 py-0.2 rounded text-[9px] font-bold border ${badgeColorClass}">${log.variant}</span>`;
                 }
 
@@ -1237,7 +1237,7 @@
         }
 
         // 商品名(あいうえお順/アルファベット順) → サイズ順(大→中→小→詰め替え用→なし→その他) で並び替え
-        const variantSortOrder = { '大': 0, '中': 1, '小': 2, '詰替': 3, 'なし': 4, 'その他': 5 };
+        const variantSortOrder = { '大': 0, '中': 1, '小': 2, '詰め替え用': 3, 'なし': 4, 'その他': 5 };
 
         function getSortedProducts() {
             return [...state.products].sort((a, b) => {
@@ -1265,23 +1265,17 @@
                 const categoryLabel = `<span class="text-[9px] font-bold px-1.5 py-0.2 ${getCategoryBadgeClass(category)} rounded-full border">${category}</span>`;
                 const variantLabel = prod.variant && prod.variant !== 'なし' ? ` <span class="text-[9px] font-bold px-1.5 py-0.2 bg-slate-100 text-slate-600 border border-slate-200 rounded-full">${prod.variant}</span>` : '';
                 return `
-                    <div class="p-3 bg-white space-y-2">
-                        <div class="flex items-start justify-between gap-2">
-                            <p class="font-bold text-gray-800 text-sm flex items-center gap-1.5 flex-wrap min-w-0">${prod.name} ${categoryLabel}${variantLabel}</p>
-                            <button onclick="deleteProduct('${prod.id}')" class="text-red-500 hover:text-red-700 p-2 border border-red-100 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center flex-shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                            </button>
+                    <div class="p-3 bg-white flex items-center justify-between gap-3 flex-wrap">
+                        <div class="flex-1 min-w-0">
+                            <p class="font-bold text-gray-800 text-sm flex items-center gap-1.5 flex-wrap">${prod.name} ${categoryLabel}${variantLabel}</p>
+                            <div class="flex gap-4 text-[10px] text-gray-400 mt-1">
+                                <span>BRITS: <input type="number" onchange="updateProductStock('${prod.id}', 'sun hair BRITS', this.value)" value="${prod.stock['sun hair BRITS'] || 0}" class="w-10 px-1 border rounded text-slate-700 text-center font-bold"> 個</span>
+                                <span>BROTHERS: <input type="number" onchange="updateProductStock('${prod.id}', 'BRITS BROTHERS', this.value)" value="${prod.stock['BRITS BROTHERS'] || 0}" class="w-10 px-1 border rounded text-slate-700 text-center font-bold"> 個</span>
+                            </div>
                         </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <label class="flex items-center justify-between gap-1 bg-slate-50 rounded-lg px-2 py-1.5 border border-slate-100">
-                                <span class="text-[10px] text-gray-400 font-bold">BRITS</span>
-                                <input type="number" onchange="updateProductStock('${prod.id}', 'sun hair BRITS', this.value)" value="${prod.stock['sun hair BRITS'] || 0}" class="w-12 px-1 border rounded text-slate-700 text-center font-bold text-xs">
-                            </label>
-                            <label class="flex items-center justify-between gap-1 bg-slate-50 rounded-lg px-2 py-1.5 border border-slate-100">
-                                <span class="text-[10px] text-gray-400 font-bold">BROTHERS</span>
-                                <input type="number" onchange="updateProductStock('${prod.id}', 'BRITS BROTHERS', this.value)" value="${prod.stock['BRITS BROTHERS'] || 0}" class="w-12 px-1 border rounded text-slate-700 text-center font-bold text-xs">
-                            </label>
-                        </div>
+                        <button onclick="deleteProduct('${prod.id}')" class="text-red-500 hover:text-red-700 p-2 border border-red-100 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center flex-shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                        </button>
                     </div>
                 `;
             }).join('');
