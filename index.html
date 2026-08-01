@@ -29,6 +29,9 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Chart.js for data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Firebase SDKs (compat v9) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
         /* Smooth transition for active tab marker */
         .tab-transition {
@@ -380,99 +383,172 @@
 
     <!-- Dynamic JavaScript -->
     <script>
-        // --- 1. STATE (状態管理) ---
-        // 将来的にFirebase等のデータベースにそのままマッピングできるようオブジェクト構造を整理しています。
+        // ============================================================
+        // ★★★ Firebase設定 ★★★
+        // Firebaseコンソール (console.firebase.google.com) でプロジェクトを作成後、
+        // 「プロジェクトの設定 > マイアプリ > SDKの設定と構成」から値をコピーして
+        // 以下の YOUR_xxx 部分を書き換えてください。
+        // ============================================================
+        const firebaseConfig = {
+            apiKey:            "AIzaSyBjhl_W6fY8XIJ4qvyeye9NsvIfONGWP7s",
+            authDomain:        "brits-portal.firebaseapp.com",
+            projectId:         "brits-portal",
+            storageBucket:     "brits-portal.firebasestorage.app",
+            messagingSenderId: "233017200992",
+            appId:             "1:233017200992:web:c57ccb6ad38db6ca398e05"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Firestoreコレクション参照
+        const CONFIG_DOC   = db.collection('brits_config').doc('main');
+        const PRODUCTS_COL = db.collection('brits_products');
+        const SALES_LOG_COL = db.collection('brits_salesLog');
+
+        // --- 1. STATE ---
         let state = {
             stores: ['sun hair BRITS', 'BRITS BROTHERS'],
             currentStore: 'sun hair BRITS',
             staff: [],
-            categories: [], // 商品カテゴリ (管理室で編集可能)
+            categories: [],
             products: [],
             salesLog: [],
             activeTab: 'main',
-            analyticsView: 'today', // today, week, month, year, staff
-            selectedCategoryFilter: 'all' // カテゴリによる絞り込み状態
+            analyticsView: 'today',
+            selectedCategoryFilter: 'all',
+            isLoaded: false
         };
 
-        // 未分類カテゴリ名 (カテゴリ削除時の退避先)
         const UNCATEGORIZED = '未分類';
 
-        // 初期ダミーデータ設定
+        // デフォルトデータ (Firestore未初期化時のみ使用)
         const defaultStaff = ['しなる', 'さとこ', 'なっこ', 'ちひろ', 'じっぽ', 'こうや', 'あいか', 'にこ', 'あず', 'りおん', 'たくと', 'まお'];
-
-        // 仮の商品カテゴリ
         const defaultCategories = ['シャンプー', 'ワックス', 'オイル', '美容機器'];
-
         const defaultProducts = [
-            { id: 'p1_l', name: 'オーガニックシャンプー', category: 'シャンプー', variant: '大', stock: { 'sun hair BRITS': 15, 'BRITS BROTHERS': 12 } },
-            { id: 'p1_m', name: 'オーガニックシャンプー', category: 'シャンプー', variant: '中', stock: { 'sun hair BRITS': 10, 'BRITS BROTHERS': 10 } },
-            { id: 'p1_s', name: 'オーガニックシャンプー', category: 'シャンプー', variant: '小', stock: { 'sun hair BRITS': 8, 'BRITS BROTHERS': 6 } },
-            { id: 'p1_r', name: 'オーガニックシャンプー', category: 'シャンプー', variant: '詰替', stock: { 'sun hair BRITS': 5, 'BRITS BROTHERS': 4 } },
-            { id: 'p2_l', name: 'オーガニックトリートメント', category: 'シャンプー', variant: '大', stock: { 'sun hair BRITS': 10, 'BRITS BROTHERS': 8 } },
-            { id: 'p2_r', name: 'オーガニックトリートメント', category: 'シャンプー', variant: '詰替', stock: { 'sun hair BRITS': 6, 'BRITS BROTHERS': 5 } },
-            { id: 'p3', name: 'ヘアワックス (ナチュラル)', category: 'ワックス', variant: 'なし', stock: { 'sun hair BRITS': 20, 'BRITS BROTHERS': 15 } },
-            { id: 'p4', name: 'トリートメントオイル (リッチ)', category: 'オイル', variant: 'なし', stock: { 'sun hair BRITS': 8, 'BRITS BROTHERS': 14 } },
-            { id: 'p5', name: 'スカルプクレンジングエッセンス', category: '美容機器', variant: 'なし', stock: { 'sun hair BRITS': 5, 'BRITS BROTHERS': 6 } }
+            { id: 'p1_l', name: 'オーガニックシャンプー',       category: 'シャンプー', variant: '大',  stock: { 'sun hair BRITS': 15, 'BRITS BROTHERS': 12 } },
+            { id: 'p1_m', name: 'オーガニックシャンプー',       category: 'シャンプー', variant: '中',  stock: { 'sun hair BRITS': 10, 'BRITS BROTHERS': 10 } },
+            { id: 'p1_s', name: 'オーガニックシャンプー',       category: 'シャンプー', variant: '小',  stock: { 'sun hair BRITS':  8, 'BRITS BROTHERS':  6 } },
+            { id: 'p1_r', name: 'オーガニックシャンプー',       category: 'シャンプー', variant: '詰替', stock: { 'sun hair BRITS':  5, 'BRITS BROTHERS':  4 } },
+            { id: 'p2_l', name: 'オーガニックトリートメント',   category: 'シャンプー', variant: '大',  stock: { 'sun hair BRITS': 10, 'BRITS BROTHERS':  8 } },
+            { id: 'p2_r', name: 'オーガニックトリートメント',   category: 'シャンプー', variant: '詰替', stock: { 'sun hair BRITS':  6, 'BRITS BROTHERS':  5 } },
+            { id: 'p3',   name: 'ヘアワックス (ナチュラル)',    category: 'ワックス',   variant: 'なし', stock: { 'sun hair BRITS': 20, 'BRITS BROTHERS': 15 } },
+            { id: 'p4',   name: 'トリートメントオイル (リッチ)', category: 'オイル',     variant: 'なし', stock: { 'sun hair BRITS':  8, 'BRITS BROTHERS': 14 } },
+            { id: 'p5',   name: 'スカルプクレンジングエッセンス', category: '美容機器',  variant: 'なし', stock: { 'sun hair BRITS':  5, 'BRITS BROTHERS':  6 } }
         ];
 
-        // 過去の販売ダミーデータを自動生成して、最初から推移グラフが見栄え良く出るようにします。
-        function generateDummySalesLog(staffList, productList) {
-            const logs = [];
-            const now = new Date();
-            
-            // 過去60日間にランダムな販売を配置
-            for (let i = 0; i < 150; i++) {
-                const daysAgo = Math.floor(Math.random() * 60);
-                const hoursAgo = Math.floor(Math.random() * 8) + 10; // 10:00 - 18:00
-                const logTime = new Date(now.getTime() - (daysAgo * 24 * 60 * 60 * 1000) - (hoursAgo * 60 * 60 * 1000));
-                
-                const randomStaff = staffList[Math.floor(Math.random() * staffList.length)];
-                const randomProduct = productList[Math.floor(Math.random() * productList.length)];
-                const randomStore = Math.random() > 0.5 ? 'sun hair BRITS' : 'BRITS BROTHERS';
-                
-                logs.push({
-                    id: 'dummy_' + i + '_' + Math.random().toString(36).substr(2, 5),
-                    timestamp: logTime.getTime(),
-                    store: randomStore,
-                    staffName: randomStaff,
-                    productName: randomProduct.name,
-                    variant: randomProduct.variant || 'なし',
-                    qty: 1
-                });
+        // --- 2. LOADING OVERLAY ---
+        function showLoadingOverlay(message) {
+            let overlay = document.getElementById('loading-overlay');
+            if (overlay) {
+                overlay.querySelector('#loading-msg').textContent = message || '読み込み中...';
+                overlay.classList.remove('hidden');
+                return;
             }
-            
-            // 時系列順に並び替え
-            return logs.sort((a, b) => b.timestamp - a.timestamp);
+            overlay = document.createElement('div');
+            overlay.id = 'loading-overlay';
+            overlay.className = 'fixed inset-0 bg-white bg-opacity-90 z-50 flex flex-col items-center justify-center gap-4';
+            overlay.innerHTML = `
+                <div class="w-12 h-12 border-4 border-teal-600 border-t-transparent rounded-full" style="animation: spin 0.8s linear infinite;"></div>
+                <p id="loading-msg" class="text-sm font-semibold text-gray-600">${message || '読み込み中...'}</p>
+                <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+            `;
+            document.body.appendChild(overlay);
         }
 
-        // --- 2. STATE INITIALIZATION (インメモリ管理) ---
-        // ※ artifact環境ではlocalStorageが使用できないため、
-        //   セッション中はメモリ上の state オブジェクトのみで管理します。
-        function loadState() {
-            initDefaultState();
+        function hideLoadingOverlay() {
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) overlay.classList.add('hidden');
         }
 
-        function saveState() {
-            // インメモリ管理のため、明示的な保存処理は不要です。
-            // (将来的に外部ストレージ連携する場合はここに実装します)
+        // --- 3. FIRESTORE: 初回データ投入 ---
+        async function initFirestoreWithDefaults() {
+            showLoadingOverlay('初期データをセットアップ中...');
+            try {
+                const batch = db.batch();
+                batch.set(CONFIG_DOC, {
+                    stores: ['sun hair BRITS', 'BRITS BROTHERS'],
+                    staff: defaultStaff,
+                    categories: defaultCategories
+                });
+                defaultProducts.forEach(prod => {
+                    const ref = PRODUCTS_COL.doc(prod.id);
+                    batch.set(ref, { name: prod.name, category: prod.category, variant: prod.variant, stock: prod.stock });
+                });
+                await batch.commit();
+                showToast('初期化完了', 'データベースを初期化しました。', 'info');
+            } catch (e) {
+                console.error('Firestore初期化エラー:', e);
+                showToast('接続エラー', 'Firebaseの設定を確認してください。', 'error');
+                hideLoadingOverlay();
+            }
         }
 
-        function initDefaultState() {
-            state.staff = [...defaultStaff];
-            state.categories = [...defaultCategories];
-            state.products = JSON.parse(JSON.stringify(defaultProducts));
-            state.salesLog = generateDummySalesLog(defaultStaff, defaultProducts);
-            state.currentStore = 'sun hair BRITS';
-            state.selectedCategoryFilter = 'all';
-        }
-
-        function resetToDefaultData() {
-            if (confirm('すべての登録データと販売記録を初期値に戻します。よろしいですか？')) {
-                initDefaultState();
-                showToast('システム', 'データを初期データにリセットしました。', 'info');
+        // --- 4. FIRESTORE: リアルタイムリスナー ---
+        function setupListeners() {
+            // config (スタッフ・カテゴリ・店舗)
+            CONFIG_DOC.onSnapshot(doc => {
+                if (!doc.exists) {
+                    initFirestoreWithDefaults();
+                    return;
+                }
+                const d = doc.data();
+                state.staff      = d.staff      || [];
+                state.categories = d.categories || [];
+                state.stores     = d.stores     || state.stores;
+                state.isLoaded   = true;
+                hideLoadingOverlay();
                 renderApp();
-                renderAnalytics();
                 if (isManagementUnlocked) renderManagementPanel();
+            }, err => {
+                console.error('configリスナーエラー:', err);
+                showToast('接続エラー', 'Firebaseへの接続に失敗しました。設定を確認してください。', 'error');
+                hideLoadingOverlay();
+            });
+
+            // 商品一覧
+            PRODUCTS_COL.onSnapshot(snapshot => {
+                state.products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if (state.isLoaded) {
+                    renderApp();
+                    if (state.activeTab === 'stock') renderStockTable();
+                    if (isManagementUnlocked) renderManagementPanel();
+                }
+            });
+
+            // 販売ログ (最新500件)
+            SALES_LOG_COL.orderBy('timestamp', 'desc').limit(500).onSnapshot(snapshot => {
+                state.salesLog = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if (state.isLoaded) {
+                    renderApp(); // 今日の売上数を更新
+                    if (state.activeTab === 'analytics') renderAnalytics();
+                }
+            });
+        }
+
+        // saveState は Firestore への個別書き込みに置き換えたため不要
+        function saveState() {}
+
+        // --- 5. リセット ---
+        async function resetToDefaultData() {
+            if (!confirm('すべての登録データと販売記録を初期値に戻します。よろしいですか？\n※この操作は取り消せません。')) return;
+            showLoadingOverlay('リセット中...');
+            try {
+                const [productSnap, salesSnap] = await Promise.all([
+                    PRODUCTS_COL.get(),
+                    SALES_LOG_COL.get()
+                ]);
+                const batch = db.batch();
+                productSnap.docs.forEach(d => batch.delete(d.ref));
+                salesSnap.docs.forEach(d => batch.delete(d.ref));
+                await batch.commit();
+                await initFirestoreWithDefaults();
+                state.selectedCategoryFilter = 'all';
+                showToast('システム', 'データを初期データにリセットしました。', 'info');
+            } catch (e) {
+                console.error('リセットエラー:', e);
+                showToast('エラー', 'リセットに失敗しました。', 'error');
+                hideLoadingOverlay();
             }
         }
 
@@ -839,21 +915,19 @@
         }
         function switchStore(storeName) {
             state.currentStore = storeName;
-            saveState();
             renderApp();
             showToast('店舗変更', `${storeName} の在庫情報を表示しています。`, 'info');
         }
 
-        function handleSale(productId) {
+        async function handleSale(productId) {
             const selectElement = document.getElementById(`staff-select-${productId}`);
             const staffName = selectElement.value;
-            
+
             if (!staffName) {
                 showToast('販売エラー', '担当スタッフ名を選択してください。', 'error');
                 return;
             }
 
-            // Find product
             const product = state.products.find(p => p.id === productId);
             if (!product) return;
 
@@ -863,34 +937,44 @@
                 return;
             }
 
-            // Decrease Stock
-            product.stock[state.currentStore] = currentStock - 1;
+            // ボタンを一時的に無効化（二重タップ防止）
+            const saleBtn = selectElement.closest('.flex').querySelector('button');
+            if (saleBtn) saleBtn.disabled = true;
 
-            // Add Sale Log
-            const logEntry = {
-                id: 'sale_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-                timestamp: Date.now(),
-                store: state.currentStore,
-                staffName: staffName,
-                productName: product.name,
-                variant: product.variant || 'なし',
-                qty: 1
-            };
-            state.salesLog.unshift(logEntry); // Add to beginning
+            try {
+                const productRef = PRODUCTS_COL.doc(productId);
+                const logRef     = SALES_LOG_COL.doc();
 
-            // Save & Sync
-            saveState();
-            renderApp();
+                await db.runTransaction(async t => {
+                    const snap = await t.get(productRef);
+                    if (!snap.exists) throw new Error('商品が見つかりません');
+                    const stock = (snap.data().stock || {})[state.currentStore] || 0;
+                    if (stock <= 0) throw new Error('在庫切れです');
 
-            // Trigger Animation Notification (Toast)
-            const sizeLabel = product.variant && product.variant !== 'なし' ? ` (${product.variant})` : '';
-            showToast(
-                '販売完了', 
-                `${staffName} が ${product.name}${sizeLabel} を販売しました (在庫残り: ${currentStock - 1}個)`
-            );
+                    // 在庫を -1（atomic increment で競合を防ぐ）
+                    t.update(productRef, {
+                        [`stock.${state.currentStore}`]: firebase.firestore.FieldValue.increment(-1)
+                    });
+                    // 販売ログを追加
+                    t.set(logRef, {
+                        timestamp:   Date.now(),
+                        store:       state.currentStore,
+                        staffName:   staffName,
+                        productName: product.name,
+                        variant:     product.variant || 'なし',
+                        qty:         1
+                    });
+                });
 
-            // Reset selector
-            selectElement.selectedIndex = 0;
+                const sizeLabel = product.variant && product.variant !== 'なし' ? ` (${product.variant})` : '';
+                showToast('販売完了', `${staffName} が ${product.name}${sizeLabel} を販売しました (在庫残り: ${currentStock - 1}個)`);
+                selectElement.selectedIndex = 0;
+            } catch (e) {
+                console.error('販売エラー:', e);
+                showToast('販売エラー', e.message || '販売処理に失敗しました。', 'error');
+            } finally {
+                if (saleBtn) saleBtn.disabled = false;
+            }
         }
 
         // --- 8. ANALYTICS (Charts & Data Logic) ---
@@ -913,12 +997,20 @@
             renderAnalytics();
         }
 
-        function clearSalesLog() {
-            if (confirm('すべての販売ログをクリアしますか？(在庫は維持されます)')) {
-                state.salesLog = [];
-                saveState();
-                renderAnalytics();
+        async function clearSalesLog() {
+            if (!confirm('すべての販売ログをクリアしますか？(在庫は維持されます)')) return;
+            showLoadingOverlay('履歴を削除中...');
+            try {
+                const snapshot = await SALES_LOG_COL.get();
+                const batch = db.batch();
+                snapshot.docs.forEach(d => batch.delete(d.ref));
+                await batch.commit();
                 showToast('履歴クリア', '販売履歴データをリセットしました。', 'info');
+            } catch (e) {
+                console.error('履歴クリアエラー:', e);
+                showToast('エラー', '履歴の削除に失敗しました。', 'error');
+            } finally {
+                hideLoadingOverlay();
             }
         }
 
@@ -1335,8 +1427,8 @@
             lucide.createIcons();
         }
 
-        // Action: Add category
-        function handleAddCategory(event) {
+        // Action: カテゴリ追加
+        async function handleAddCategory(event) {
             event.preventDefault();
             const input = document.getElementById('new-category-name');
             const name = input.value.trim();
@@ -1346,126 +1438,114 @@
                 showToast('エラー', `「${UNCATEGORIZED}」は予約された名称のため使用できません。`, 'error');
                 return;
             }
-
             if (state.categories.includes(name)) {
                 showToast('エラー', 'このカテゴリ名はすでに登録されています。', 'error');
                 return;
             }
 
-            state.categories.push(name);
-            saveState();
-            renderCategoryManagement();
-            populateCategorySelect();
-            renderApp(); // フィルターバーを更新
-
-            input.value = '';
-            showToast('カテゴリ追加', `「${name}」カテゴリを新しく登録しました。`);
+            try {
+                await CONFIG_DOC.update({
+                    categories: firebase.firestore.FieldValue.arrayUnion(name)
+                });
+                input.value = '';
+                showToast('カテゴリ追加', `「${name}」カテゴリを新しく登録しました。`);
+            } catch (e) {
+                console.error('カテゴリ追加エラー:', e);
+                showToast('エラー', 'カテゴリの追加に失敗しました。', 'error');
+            }
         }
 
-        // Action: Delete category
-        function deleteCategory(name) {
+        // Action: カテゴリ削除
+        async function deleteCategory(name) {
             const count = state.products.filter(p => getProductCategory(p) === name).length;
             const message = count > 0
                 ? `「${name}」カテゴリを削除しますか？\nこのカテゴリの商品 ${count}件は「${UNCATEGORIZED}」になります。`
                 : `「${name}」カテゴリを削除しますか？`;
+            if (!confirm(message)) return;
 
-            if (confirm(message)) {
-                state.categories = state.categories.filter(c => c !== name);
-
-                // 絞り込み中のカテゴリが削除された場合は「すべて」に戻す
-                if (state.selectedCategoryFilter === name) {
-                    state.selectedCategoryFilter = 'all';
-                }
-
-                saveState();
-                renderCategoryManagement();
-                populateCategorySelect();
-                renderApp();
-                renderManagementPanel();
+            try {
+                await CONFIG_DOC.update({
+                    categories: firebase.firestore.FieldValue.arrayRemove(name)
+                });
+                if (state.selectedCategoryFilter === name) state.selectedCategoryFilter = 'all';
                 showToast('カテゴリ削除', `「${name}」カテゴリを削除しました。`, 'info');
+            } catch (e) {
+                console.error('カテゴリ削除エラー:', e);
+                showToast('エラー', 'カテゴリの削除に失敗しました。', 'error');
             }
         }
 
-        // Action: Stock update inside master panel
-        function updateProductStock(productId, store, value) {
+        // Action: 在庫数を管理室から直接変更
+        async function updateProductStock(productId, store, value) {
             const num = parseInt(value, 10);
             if (isNaN(num) || num < 0) return;
 
-            const product = state.products.find(p => p.id === productId);
-            if (product) {
-                product.stock[store] = num;
-                saveState();
-                renderApp();
-                showToast('在庫更新', `${product.name} の ${store} の在庫数を ${num} 個に変更しました。`, 'info');
+            try {
+                await PRODUCTS_COL.doc(productId).update({
+                    [`stock.${store}`]: num
+                });
+                const product = state.products.find(p => p.id === productId);
+                showToast('在庫更新', `${product ? product.name : ''} の ${store} の在庫数を ${num} 個に変更しました。`, 'info');
+            } catch (e) {
+                console.error('在庫更新エラー:', e);
+                showToast('エラー', '在庫の更新に失敗しました。', 'error');
             }
         }
 
-        // Action: Add product
-        function handleAddProduct(event) {
+        // Action: 商品追加
+        async function handleAddProduct(event) {
             event.preventDefault();
-            const name = document.getElementById('new-product-name').value.trim();
-            const category = document.getElementById('new-product-category').value;
-            const variant = document.getElementById('new-product-variant').value;
-            const stockBrits = parseInt(document.getElementById('new-product-stock-brits').value, 10) || 0;
+            const name         = document.getElementById('new-product-name').value.trim();
+            const category     = document.getElementById('new-product-category').value;
+            const variant      = document.getElementById('new-product-variant').value;
+            const stockBrits   = parseInt(document.getElementById('new-product-stock-brits').value, 10) || 0;
             const stockBrothers = parseInt(document.getElementById('new-product-stock-brothers').value, 10) || 0;
 
             if (!name) return;
-
             if (state.categories.length === 0) {
                 showToast('エラー', '先にカテゴリを1つ以上登録してください。', 'error');
                 return;
             }
-
-            // Check if product with same name and variant already exists
-            const exists = state.products.some(p => p.name === name && p.variant === variant);
-            if (exists) {
+            if (state.products.some(p => p.name === name && p.variant === variant)) {
                 showToast('エラー', 'この商品名とサイズの組み合わせは既に登録されています。', 'error');
                 return;
             }
 
-            const newId = 'product_' + Date.now();
-            const newProduct = {
-                id: newId,
-                name: name,
-                category: category,
-                variant: variant,
-                stock: {
-                    'sun hair BRITS': stockBrits,
-                    'BRITS BROTHERS': stockBrothers
-                }
-            };
+            try {
+                await PRODUCTS_COL.add({
+                    name, category, variant,
+                    stock: { 'sun hair BRITS': stockBrits, 'BRITS BROTHERS': stockBrothers }
+                });
 
-            state.products.push(newProduct);
-            saveState();
-            renderApp();
-            renderManagementPanel();
+                const keepCategory = document.getElementById('new-product-category').value;
+                document.getElementById('add-product-form').reset();
+                document.getElementById('new-product-category').value = keepCategory;
 
-            // Reset form (カテゴリ選択は維持)
-            const form = document.getElementById('add-product-form');
-            const keepCategory = document.getElementById('new-product-category').value;
-            form.reset();
-            document.getElementById('new-product-category').value = keepCategory;
-
-            const sizeLabel = variant !== 'なし' ? ` (${variant})` : '';
-            showToast('商品追加', `「${name}${sizeLabel}」(${category}) を追加しました。あいうえお順に自動で並び替えられます。`);
-        }
-
-        // Action: Delete product
-        function deleteProduct(id) {
-            const product = state.products.find(p => p.id === id);
-            if (!product) return;
-
-            if (confirm(`本当に「${product.name}」を削除しますか？\n（この商品を削除しても過去の販売履歴は消えません）`)) {
-                state.products = state.products.filter(p => p.id !== id);
-                saveState();
-                renderApp();
-                renderManagementPanel();
-                showToast('商品削除', `「${product.name}」を削除しました。`, 'info');
+                const sizeLabel = variant !== 'なし' ? ` (${variant})` : '';
+                showToast('商品追加', `「${name}${sizeLabel}」(${category}) を追加しました。`);
+            } catch (e) {
+                console.error('商品追加エラー:', e);
+                showToast('エラー', '商品の追加に失敗しました。', 'error');
             }
         }
 
-        // Action: Add staff
-        function handleAddStaff(event) {
+        // Action: 商品削除
+        async function deleteProduct(id) {
+            const product = state.products.find(p => p.id === id);
+            if (!product) return;
+            if (!confirm(`本当に「${product.name}」を削除しますか？\n（過去の販売履歴は消えません）`)) return;
+
+            try {
+                await PRODUCTS_COL.doc(id).delete();
+                showToast('商品削除', `「${product.name}」を削除しました。`, 'info');
+            } catch (e) {
+                console.error('商品削除エラー:', e);
+                showToast('エラー', '商品の削除に失敗しました。', 'error');
+            }
+        }
+
+        // Action: スタッフ追加
+        async function handleAddStaff(event) {
             event.preventDefault();
             const name = document.getElementById('new-staff-name').value.trim();
             if (!name) return;
@@ -1475,23 +1555,30 @@
                 return;
             }
 
-            state.staff.push(name);
-            saveState();
-            renderApp();
-            renderManagementPanel();
-
-            document.getElementById('new-staff-name').value = '';
-            showToast('スタッフ追加', `「${name}」をメンバーに登録しました。`);
+            try {
+                await CONFIG_DOC.update({
+                    staff: firebase.firestore.FieldValue.arrayUnion(name)
+                });
+                document.getElementById('new-staff-name').value = '';
+                showToast('スタッフ追加', `「${name}」をメンバーに登録しました。`);
+            } catch (e) {
+                console.error('スタッフ追加エラー:', e);
+                showToast('エラー', 'スタッフの追加に失敗しました。', 'error');
+            }
         }
 
-        // Action: Delete staff
-        function deleteStaff(name) {
-            if (confirm(`本当に「${name}」を削除しますか？`)) {
-                state.staff = state.staff.filter(s => s !== name);
-                saveState();
-                renderApp();
-                renderManagementPanel();
+        // Action: スタッフ削除
+        async function deleteStaff(name) {
+            if (!confirm(`本当に「${name}」を削除しますか？`)) return;
+
+            try {
+                await CONFIG_DOC.update({
+                    staff: firebase.firestore.FieldValue.arrayRemove(name)
+                });
                 showToast('スタッフ削除', `「${name}」をメンバーから削除しました。`, 'info');
+            } catch (e) {
+                console.error('スタッフ削除エラー:', e);
+                showToast('エラー', 'スタッフの削除に失敗しました。', 'error');
             }
         }
 
@@ -1516,14 +1603,10 @@
 
         // --- 11. STARTUP ---
         window.onload = function() {
-            // Load initial (demo) data into memory
-            loadState();
-            
-            // Build visual component
-            renderApp();
-            
-            // Render basic icons
+            showLoadingOverlay('Firebaseに接続中...');
             lucide.createIcons();
+            // Firestoreリスナーを起動 → データが届いたら自動で renderApp() が呼ばれる
+            setupListeners();
         };
     </script>
 </body>
