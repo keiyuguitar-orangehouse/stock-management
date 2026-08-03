@@ -122,10 +122,15 @@
         <!-- Tab Content 1.5: Stock Table (Spreadsheet style) -->
         <section id="tab-content-stock" class="hidden space-y-4">
             <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-                <h2 class="text-lg font-bold flex items-center gap-2 mb-1 text-salon-primary">
-                    <i data-lucide="table" class="w-5 h-5"></i>在庫一覧表
-                </h2>
-                <p class="text-xs text-gray-400 mb-3">全商品の店舗別在庫数と合計を一覧で確認できます。</p>
+                <div class="flex justify-between items-start mb-1">
+                    <h2 class="text-lg font-bold flex items-center gap-2 text-salon-primary">
+                        <i data-lucide="table" class="w-5 h-5"></i>在庫一覧表
+                    </h2>
+                    <button onclick="downloadStockCSV()" class="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-sm transition-all">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i>CSV保存
+                    </button>
+                </div>
+                <p class="text-xs text-gray-400 mb-3">全商品の店舗別在庫数と合計を一覧で確認できます。CSVはExcel・Googleスプレッドシートで開けます。</p>
 
                 <!-- Search Bar (Stock Table) -->
                 <div class="bg-slate-50 p-3 rounded-xl border border-gray-100 flex items-center space-x-2 mb-3">
@@ -913,6 +918,46 @@
                 </tr>
             `;
         }
+        // --- CSV ダウンロード ---
+        function downloadStockCSV() {
+            const today = new Date();
+            const dateStr = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}`;
+
+            const sorted = getSortedProducts();
+
+            // BOM付きUTF-8（Excelで文字化けしないように）
+            const BOM = '﻿';
+            const header = ['商品名', 'サイズ', 'カテゴリ', 'sun hair BRITS', 'BRITS BROTHERS', '合計'];
+
+            const rows = sorted.map(prod => {
+                const brits    = prod.stock['sun hair BRITS']  || 0;
+                const brothers = prod.stock['BRITS BROTHERS']  || 0;
+                const total    = brits + brothers;
+                const variant  = prod.variant && prod.variant !== 'なし' ? prod.variant : '';
+                const category = getProductCategory(prod);
+                return [prod.name, variant, category, brits, brothers, total];
+            });
+
+            // 合計行
+            const totalBrits    = sorted.reduce((a, p) => a + (p.stock['sun hair BRITS']  || 0), 0);
+            const totalBrothers = sorted.reduce((a, p) => a + (p.stock['BRITS BROTHERS']  || 0), 0);
+            rows.push(['合計', '', '', totalBrits, totalBrothers, totalBrits + totalBrothers]);
+
+            const csvContent = BOM + [header, ...rows]
+                .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+                .join('\r\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href     = url;
+            a.download = `BRITS在庫一覧_${dateStr}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            showToast('CSVダウンロード', `BRITS在庫一覧_${dateStr}.csv を保存しました。`);
+        }
+
         function switchStore(storeName) {
             state.currentStore = storeName;
             renderApp();
