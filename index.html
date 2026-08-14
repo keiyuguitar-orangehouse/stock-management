@@ -191,6 +191,9 @@
                         <span class="text-lg font-extrabold text-salon-primary" id="analytics-total-qty">0 点</span>
                     </div>
                 </div>
+                <p id="sales-log-cap-warning" class="hidden text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+                    ⚠ 販売記録が上限件数に達しているため、この集計はもっとも古いデータを含んでいない可能性があります。
+                </p>
 
                 <!-- Chart Container -->
                 <div class="relative h-64 bg-white p-2 rounded-xl border border-gray-100 shadow-inner">
@@ -419,6 +422,7 @@
             categories: [],
             products: [],
             salesLog: [],
+            salesLogCapped: false,
             activeTab: 'main',
             analyticsView: 'today',
             selectedCategoryFilter: 'all',
@@ -573,9 +577,11 @@
                 }
             });
 
-            // 販売ログ (最新500件)
-            SALES_LOG_COL.orderBy('timestamp', 'desc').limit(500).onSnapshot(snapshot => {
+            // 販売ログ (最新5000件。上限に達した場合はrenderAnalyticsで警告表示)
+            const SALES_LOG_CAP = 5000;
+            SALES_LOG_COL.orderBy('timestamp', 'desc').limit(SALES_LOG_CAP).onSnapshot(snapshot => {
                 state.salesLog = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                state.salesLogCapped = snapshot.size >= SALES_LOG_CAP;
                 if (state.isLoaded) {
                     renderApp(); // 今日の売上数を更新
                     if (state.activeTab === 'analytics') renderAnalytics();
@@ -1262,6 +1268,11 @@
             // Update DOM headers
             document.getElementById('analytics-period-label').innerText = labelText;
             document.getElementById('analytics-period-range').innerText = rangeText;
+
+            // 全期間集計(スタッフ別/カテゴリ別)は salesLog を丸ごと使うため、上限到達時のみ警告
+            const capWarning = document.getElementById('sales-log-cap-warning');
+            const showCapWarning = state.salesLogCapped && (state.analyticsView === 'staff' || state.analyticsView === 'category');
+            capWarning.classList.toggle('hidden', !showCapWarning);
             
             // Calculate total quantity in filtered period
             const totalQty = (state.analyticsView === 'staff' || state.analyticsView === 'category')
