@@ -202,7 +202,7 @@
             <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                 <div class="flex justify-between items-center mb-3">
                     <h3 class="font-bold text-sm text-gray-700">直近の販売履歴</h3>
-                    <button onclick="clearSalesLog()" class="text-xs text-red-500 hover:text-red-700 flex items-center gap-1">
+                    <button id="clear-sales-log-btn" onclick="clearSalesLog()" class="hidden text-xs text-red-500 hover:text-red-700 flex items-center gap-1">
                         <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>履歴クリア
                     </button>
                 </div>
@@ -466,17 +466,62 @@
             if (overlay) overlay.classList.add('hidden');
         }
 
+        // --- 2.5 初回セットアップ確認画面 ---
+        function showFirstSetupScreen() {
+            hideLoadingOverlay();
+            let screen = document.getElementById('first-setup-screen');
+            if (screen) {
+                screen.classList.remove('hidden');
+                return;
+            }
+            screen = document.createElement('div');
+            screen.id = 'first-setup-screen';
+            screen.className = 'fixed inset-0 bg-white z-50 flex flex-col items-center justify-center gap-4 p-6 text-center';
+            screen.innerHTML = `
+                <div class="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center shadow-inner">
+                    <i data-lucide="alert-triangle" class="w-8 h-8"></i>
+                </div>
+                <h2 class="text-lg font-bold text-gray-800">データが見つかりません</h2>
+                <p class="text-xs text-gray-500 leading-relaxed max-w-xs">
+                    サーバーに設定データが見つかりませんでした。<br>
+                    <span class="font-bold text-red-500">いつも通り使っていてこの画面が出た場合は、ボタンを押さずに管理者へご連絡ください。</span>
+                </p>
+                <button id="first-setup-reload-btn" class="w-full max-w-xs bg-salon-primary text-white font-bold py-3 px-4 rounded-xl shadow-md active:scale-95 transition-transform text-sm">
+                    もう一度読み込む
+                </button>
+                <button id="first-setup-init-btn" class="text-xs text-gray-400 underline mt-2">
+                    これが初回セットアップの場合はこちら
+                </button>
+            `;
+            document.body.appendChild(screen);
+            document.getElementById('first-setup-reload-btn').addEventListener('click', () => location.reload());
+            document.getElementById('first-setup-init-btn').addEventListener('click', () => {
+                if (!confirm('見本用の初期データを登録します。\n通常の営業では実行しないでください。\n\n本当に実行しますか？')) return;
+                hideFirstSetupScreen();
+                initFirestoreWithDefaults();
+            });
+            lucide.createIcons();
+        }
+
+        function hideFirstSetupScreen() {
+            const screen = document.getElementById('first-setup-screen');
+            if (screen) screen.classList.add('hidden');
+        }
+
         // --- 3. FIRESTORE: 初回データ投入 ---
         async function initFirestoreWithDefaults() {
             showLoadingOverlay('初期データをセットアップ中...');
             try {
+                const existing = await PRODUCTS_COL.get();
+                const existingIds = new Set(existing.docs.map(d => d.id));
                 const batch = db.batch();
                 batch.set(CONFIG_DOC, {
                     stores: ['sun hair BRITS', 'BRITS BROTHERS'],
                     staff: defaultStaff,
                     categories: defaultCategories
-                });
+                }, { merge: true });
                 defaultProducts.forEach(prod => {
+                    if (existingIds.has(prod.id)) return;
                     const ref = PRODUCTS_COL.doc(prod.id);
                     batch.set(ref, { name: prod.name, category: prod.category, variant: prod.variant, stock: prod.stock });
                 });
@@ -494,9 +539,16 @@
             // config (スタッフ・カテゴリ・店舗)
             CONFIG_DOC.onSnapshot(doc => {
                 if (!doc.exists) {
-                    initFirestoreWithDefaults();
+                    // オフライン時はローカルキャッシュ由来の空スナップショットが届く。
+                    // これを未初期化と誤判定して書き込むと、通信回復時に本番設定が初期値で上書きされる。
+                    if (doc.metadata.fromCache) {
+                        showLoadingOverlay('オフラインです。接続を待っています...');
+                        return;
+                    }
+                    showFirstSetupScreen();
                     return;
                 }
+                hideFirstSetupScreen();
                 const d = doc.data();
                 state.staff      = d.staff      || [];
                 state.categories = d.categories || [];
@@ -643,10 +695,11 @@
                 document.getElementById('mgt-lock-screen').classList.add('hidden');
                 document.getElementById('mgt-content-panel').classList.remove('hidden');
                 document.getElementById('mgt-password-input').value = '';
+                document.getElementById('clear-sales-log-btn').classList.remove('hidden');
                 showToast('ロック解除', '管理マスター室へ入室しました。', 'info');
                 renderManagementPanel();
             } else {
-                showToast('認証エラー', 'パスワードが違います。(デモ用のパスワード: 1234)', 'error');
+                showToast('認証エラー', 'パスワードが違います。', 'error');
             }
         }
 
@@ -654,6 +707,7 @@
             isManagementUnlocked = false;
             document.getElementById('mgt-lock-screen').classList.remove('hidden');
             document.getElementById('mgt-content-panel').classList.add('hidden');
+            document.getElementById('clear-sales-log-btn').classList.add('hidden');
             showToast('ロック完了', '管理マスター室を閉じました。', 'info');
         }
 
@@ -1043,6 +1097,10 @@
         }
 
         async function clearSalesLog() {
+            if (!isManagementUnlocked) {
+                showToast('操作できません', '履歴のクリアは管理マスター室のロックを解除してから行ってください。', 'error');
+                return;
+            }
             if (!confirm('すべての販売ログをクリアしますか？(在庫は維持されます)')) return;
             showLoadingOverlay('履歴を削除中...');
             try {
